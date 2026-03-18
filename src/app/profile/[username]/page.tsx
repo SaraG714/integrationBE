@@ -5,17 +5,23 @@ import { useParams } from "next/navigation";
 import { User, Post } from "@/lib/types";
 import { CURRENT_USER } from "@/lib/mock-data";
 import Link from "next/link";
+import Toast from "@/components/Toast";
 
 export default function ProfilePage() {
   const { username } = useParams<{ username: string }>();
   const [user, setUser] = useState<User | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
-    // TODO: Change the URL below to your real backend endpoint.
-    // Example: fetch(`https://your-api.com/profile/${username}`)
-
+    fetch(`/api/profile/${username}`)
+      .then((res) => res.json())
+      .then(({ user, posts }) => {
+        setUser(user);
+        setPosts(posts);
+      })
+      .finally(() => setLoading(false));
   }, [username]);
 
   if (loading) return <div className="flex justify-center py-20 text-gray-400">Loading profile…</div>;
@@ -23,8 +29,14 @@ export default function ProfilePage() {
 
   const isOwn = username === CURRENT_USER.username;
 
+  function handleFollow() {
+    setToast(`${user!.username} seguido con éxito`);
+  }
+
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
+      {toast && <Toast message={toast} onClose={() => setToast(null)} />}
+
       {/* Header */}
       <div className="flex gap-8 md:gap-16 items-start mb-8">
         <div className="flex-shrink-0">
@@ -50,8 +62,10 @@ export default function ProfilePage() {
               </Link>
             ) : (
               <>
-                {/* TODO: Wire to POST /api/profile/[username]/follow */}
-                <button className="px-6 py-1.5 text-sm font-semibold bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+                <button
+                  onClick={handleFollow}
+                  className="px-6 py-1.5 text-sm font-semibold bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                >
                   Follow
                 </button>
                 <Link href="/messages" className="px-4 py-1.5 text-sm font-semibold bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
@@ -67,12 +81,10 @@ export default function ProfilePage() {
               <span className="text-sm text-gray-500 ml-1">posts</span>
             </div>
             <button className="hover:opacity-70">
-              {/* TODO: fetch("/api/profile/[username]/followers") */}
               <span className="font-semibold">{user.followersCount.toLocaleString()}</span>
               <span className="text-sm text-gray-500 ml-1">followers</span>
             </button>
             <button className="hover:opacity-70">
-              {/* TODO: fetch("/api/profile/[username]/following") */}
               <span className="font-semibold">{user.followingCount.toLocaleString()}</span>
               <span className="text-sm text-gray-500 ml-1">following</span>
             </button>
@@ -98,7 +110,6 @@ export default function ProfilePage() {
           </svg>
           Posts
         </button>
-        {/* TODO: fetch(`/api/profile/${username}/reels`) on tab click */}
         <button className="flex items-center gap-1.5 py-3 text-xs font-semibold uppercase tracking-widest text-gray-400">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4">
             <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 9h17.25c1.035 0 1.875.84 1.875 1.875v9.75c0 1.036-.84 1.875-1.875 1.875H3.375A1.875 1.875 0 011.5 20.625v-9.75C1.5 9.839 2.34 9 3.375 9z" />
@@ -115,18 +126,39 @@ export default function ProfilePage() {
         )}
       </div>
 
-      {/* TODO (students): Render the posts grid here.
-           `posts` is an array of Post objects fetched above.
-           Each post has: id, imageUrl, caption, likesCount, commentsCount, author.
-           Display them in a 3-column grid (use grid grid-cols-3 gap-0.5).
-           Each cell should be aspect-square with the post image filling it.
-           Optionally show a hover overlay with likes/comments counts. */}
-      <div className="flex flex-col items-center gap-3 py-16 text-gray-400">
-        <p className="font-semibold text-lg">Posts grid coming soon</p>
-        <p className="text-sm text-center max-w-xs">
-          Implement the posts grid in <code className="bg-gray-100 px-1 rounded text-gray-600">src/app/profile/[username]/page.tsx</code>
-        </p>
-      </div>
+      {/* Posts grid */}
+      {posts.length > 0 ? (
+        <div className="grid grid-cols-3 gap-0.5">
+          {posts.map((post) => (
+            <div key={post.id} className="relative aspect-square group overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={post.imageUrl}
+                alt={post.caption}
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
+                <span className="text-white text-sm font-semibold flex items-center gap-1">
+                  <svg viewBox="0 0 24 24" fill="white" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+                  </svg>
+                  {post.likesCount.toLocaleString()}
+                </span>
+                <span className="text-white text-sm font-semibold flex items-center gap-1">
+                  <svg viewBox="0 0 24 24" fill="white" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 01-.923 1.785A5.969 5.969 0 006 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337z" />
+                  </svg>
+                  {post.commentsCount.toLocaleString()}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-3 py-16 text-gray-400">
+          <p className="font-semibold text-lg">No posts yet</p>
+        </div>
+      )}
     </div>
   );
 }

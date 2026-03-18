@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { CURRENT_USER } from "@/lib/mock-data";
+import { uploadFiles } from "@/lib/uploadthing";
 
 export default function EditProfilePage() {
   const router = useRouter();
@@ -10,32 +11,33 @@ export default function EditProfilePage() {
   const [bio, setBio] = useState(CURRENT_USER.bio);
   const [website, setWebsite] = useState(CURRENT_USER.website ?? "");
   const [avatarPreview, setAvatarPreview] = useState(CURRENT_USER.avatar);
+  const [uploadedAvatarUrl, setUploadedAvatarUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setAvatarPreview(URL.createObjectURL(file));
-
-    // TODO: Upload the avatar with UploadThing and save the returned URL.
-    // Example:
-    //   const [result] = await uploadFiles("imageUploader", { files: [file] });
-    //   setUploadedAvatarUrl(result.url);
+    setUploading(true);
+    try {
+      const [result] = await uploadFiles("imageUploader", { files: [file] });
+      setUploadedAvatarUrl(result.ufsUrl);
+    } finally {
+      setUploading(false);
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
 
-    // TODO: Replace the URL below with your real backend endpoint.
-    // Also pass `avatarUrl` from UploadThing once you integrate file uploads.
-    // Example: fetch("https://your-api.com/profile", { method: "POST", ... })
     await fetch("/api/profile", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, bio, website }),
+      body: JSON.stringify({ name, bio, website, avatarUrl: uploadedAvatarUrl ?? CURRENT_USER.avatar }),
     });
 
     setSaved(true);
@@ -62,9 +64,10 @@ export default function EditProfilePage() {
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
-            className="text-sm font-semibold text-blue-500 hover:text-blue-700"
+            disabled={uploading}
+            className="text-sm font-semibold text-blue-500 hover:text-blue-700 disabled:opacity-40"
           >
-            Change photo
+            {uploading ? "Subiendo…" : "Change photo"}
           </button>
           <input ref={fileRef} type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
         </div>
@@ -108,7 +111,7 @@ export default function EditProfilePage() {
 
         <button
           type="submit"
-          disabled={loading || saved}
+          disabled={loading || saved || uploading}
           className="w-full py-3 rounded-xl bg-blue-500 text-white font-semibold text-sm hover:bg-blue-600 transition-colors disabled:opacity-40"
         >
           {saved ? "Saved ✓" : loading ? "Saving…" : "Save changes"}
